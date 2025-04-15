@@ -7,16 +7,18 @@ using Toolkit.Mvvm.Infrastructure.Commands.Base;
 
 namespace Toolkit.Mvvm.DependencyInjection
 {
-    public sealed class CommandFactory<TViewModel> : ICommandFactory<TViewModel>
+    public sealed class CommandFactory<TViewModel>(
+        IOptions<CommandFactoryOptions> configureOptions,
+        ILogger<TViewModel> logger) : ICommandFactory<TViewModel>
     {
-        private readonly CommandFactoryOptions _options;
-        private readonly ILogger<TViewModel> _logger;
+        private readonly CommandFactoryOptions _options = configureOptions.Value;
+        private readonly ILogger<TViewModel> _logger = logger;
 
         private Func<object, bool> AdditionalCondition => _options.AdditionalCondition ?? (i => true);
 
         public Command Create(Action<object> execute, [CallerMemberName] string memberName = null!)
         {
-            LambdaCommand command = new LambdaCommand(execute, AdditionalCondition, memberName);
+            LambdaCommand command = new(execute, AdditionalCondition, memberName);
             command.CanExecuteFinished += Command_CanExecuteFinished;
             command.Created += Command_Created;
             command.Executed += Command_Executed;
@@ -25,7 +27,7 @@ namespace Toolkit.Mvvm.DependencyInjection
 
         public AsyncCommand CreateAsync(Func<object, Task> execute, [CallerMemberName] string memberName = null!)
         {
-            LambdaAsyncCommand command = new LambdaAsyncCommand(execute, AdditionalCondition, memberName);
+            LambdaAsyncCommand command = new(execute, AdditionalCondition, memberName);
             command.ExceptionInvoked += Command_ExceptionInvoked;
             command.CanExecuteFinished += Command_CanExecuteFinished;
             command.Created += Command_Created;
@@ -35,7 +37,7 @@ namespace Toolkit.Mvvm.DependencyInjection
 
         public Command Create(Action<object> execute, Func<object, bool> canExecute, [CallerMemberName] string memberName = null!)
         {
-            LambdaCommand command = new LambdaCommand(execute, i => AdditionalCondition(i) && canExecute(i), memberName);
+            LambdaCommand command = new(execute, i => AdditionalCondition(i) && canExecute(i), memberName);
             command.CanExecuteFinished += Command_CanExecuteFinished;
             command.Created += Command_Created;
             command.Executed += Command_Executed;
@@ -44,7 +46,7 @@ namespace Toolkit.Mvvm.DependencyInjection
 
         public AsyncCommand CreateAsync(Func<object, Task> execute, Func<object, bool> canExecute, [CallerMemberName] string memberName = null!)
         {
-            LambdaAsyncCommand command = new LambdaAsyncCommand(execute, i => AdditionalCondition(i) && canExecute(i), memberName);
+            LambdaAsyncCommand command = new(execute, i => AdditionalCondition(i) && canExecute(i), memberName);
             command.ExceptionInvoked += Command_ExceptionInvoked;
             command.CanExecuteFinished += Command_CanExecuteFinished;
             command.Created += Command_Created;
@@ -72,18 +74,5 @@ namespace Toolkit.Mvvm.DependencyInjection
             if (!e.Result)
                 _logger?.LogTrace($"Command '{e.Name}' cannot be executed");
         }
-
-        #region Constructors
-
-        public CommandFactory(
-            IOptions<CommandFactoryOptions> configureOptions,
-            ILogger<TViewModel> logger)
-        {
-            _options = configureOptions.Value;
-            _logger = logger;
-        } 
-
-        #endregion
-
     }
 }
